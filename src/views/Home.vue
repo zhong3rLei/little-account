@@ -121,6 +121,7 @@
                 //     money: 400
                 // }
             ],
+            tableSource: [],
             multipleSelection: [],
             input: '',
             account: 0,
@@ -224,6 +225,7 @@
                         money: Number(el[4])
                     }
                 })
+                this.tableSource = [...this.tableSource,...arr]
                 this.tableData = [...this.tableData,...arr]
             },
             computeCheck (dat) {
@@ -250,6 +252,54 @@
                 })
                 this.dateList = dateList
                 this.payList = payList
+// {
+                //     label: '一级 1',
+                //     children: [{
+                //         label: '二级 1-1',
+                //         children: [{
+                //             label: '三级 1-1-1'
+                //         }]
+                //     }]
+                // }, {
+                //     label: '一级 2',
+                //     children: [{
+                //         label: '二级 2-1',
+                //         children: [{
+                //             label: '三级 2-1-1'
+                //         }]
+                //     }, {
+                //         label: '二级 2-2',
+                //         children: [{
+                //             label: '三级 2-2-1'
+                //         }, {
+                //             label: '三级 2-2-2'
+                //         }]
+                //     }]
+                // }, {
+                //     label: '一级 3',
+                //     children: []
+                // }
+                //分析分类的渲染数据
+                let vArr = []
+                variateList.forEach(v=>{
+                    let itemArr = v.split('-')
+                    let cur = null
+                    while (itemArr.length > 0) {
+                        if (!cur) {
+                            cur = vArr.find(el => el.label == itemArr[0])
+                        } else {
+                            cur = cur.children
+                        }
+                        
+                        if (!cur) {
+                            cur = {
+                                label: itemArr[0],
+                                children: []
+                            }
+                            vArr.push(cur)
+                        }
+                    }
+                })
             },
             format (date) {
                 var now = new Date(date)
