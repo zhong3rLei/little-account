@@ -1,10 +1,10 @@
 <template>
     <div class="home">
-        <el-button type="primary" size="small">添加账目<i class="el-icon-document-add el-icon--right"></i></el-button>
+        <el-button type="primary" size="small" @click="dialogFormVisible = true">添加账目<i class="el-icon-document-add el-icon--right"></i></el-button>
         <el-button type="primary" size="small" style='position:relative;'>导入账本<i class="el-icon-folder-add el-icon--right"></i>
             <input type="file" @change="excel_add" class="inputFile" accept=".xlsx">
         </el-button>
-        <el-button type="danger" size="small">清空当前工作区<i class="el-icon-delete el-icon--right"></i></el-button>
+        <el-button type="danger" size="small" @click="clearWorkSpace">清空当前工作区<i class="el-icon-delete el-icon--right"></i></el-button>
         <el-button type="success" style='float:right;' size="small">导出账本<i
                 class="el-icon-folder-opened el-icon--right"></i>
         </el-button>
@@ -25,15 +25,20 @@
                             <el-checkbox style='display:block;padding:4px 0;' v-for='item in dateList' :key='item'
                                 :label="item"></el-checkbox>
                         </el-checkbox-group>
-                        <el-input :value="dateCheckList.join(',')" style='width:100%;' placeholder="请选择日期"
+                        <el-input :value="dateCheckList.join(',')" readonly style='width:100%;' placeholder="请选择日期"
                             slot="reference"></el-input>
                     </el-popover>
                 </td>
                 <td style='width:120px;'>
                     <el-popover width="120" trigger="focus">
-                        <el-tree :data="variationData" :props="defaultProps" show-checkbox
+                        <!--<el-tree ref='tree' :data="variationData" :props="defaultProps" show-checkbox
                             @check-change="handleCheckChange"></el-tree>
-                        <el-input v-model="input" style='width:100%;' placeholder="请选择类别" slot="reference"></el-input>
+                        <el-input :value="variationCheck.join(',')" style='width:100%;' readonly placeholder="请选择类别" slot="reference"></el-input>-->
+                        <el-checkbox-group v-model="variationCheck">
+                            <el-checkbox style='display:block;padding:4px 0;' v-for='item in variationData' :key='item'
+                                :label="item"></el-checkbox>
+                        </el-checkbox-group>
+                        <el-input :value="variationCheck.join(',')" style='width:100%;' readonly placeholder="请选择类别" slot="reference"></el-input>
                     </el-popover>
                 </td>
                 <td style='width:200px;'>
@@ -42,7 +47,7 @@
                             <el-checkbox style='display:block;padding:4px 0;' v-for='item in payList' :key='item'
                                 :label="item"></el-checkbox>
                         </el-checkbox-group>
-                        <el-input :value="payCheckList.join(',')" style='width:100%;' placeholder="请选择支付方式"
+                        <el-input :value="payCheckList.join(',')" readonly style='width:100%;' placeholder="请选择支付方式"
                             slot="reference"></el-input>
                     </el-popover>
                 </td>
@@ -86,13 +91,58 @@
                 <td style="175px">{{account}}</td>
             </tr>
         </table>
+        <el-dialog title="添加账目" :visible.sync="dialogFormVisible">
+            <el-form>
+                <el-form-item label="详情" label-width="100px">
+                    <el-input
+                    type="textarea"
+                    :rows="3"
+                    placeholder="请输入内容"
+                    autocomplete="off"
+                    v-model="detail">
+                    </el-input>
+                </el-form-item>
+                <el-form-item label="日期" label-width="100px">
+                    <el-date-picker
+                        v-model="addDate"
+                        type="date"
+                        value-format="yyyy-MM-dd"
+                        format='yyyy-MM-dd'
+                        placeholder="选择日期">
+                    </el-date-picker>
+                </el-form-item>
+                <el-form-item label="分类" label-width="100px">
+                    <el-dropdown trigger="click" placement="bottom-start" @command='addVarietyCall'>
+                        <el-input v-model="addVariety" placeholder="请输入分类"></el-input>
+                        <el-dropdown-menu slot="dropdown">
+                            <el-dropdown-item v-for='item in variationData' :key='item'>{{item}}</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </el-dropdown>
+                </el-form-item>
+                <el-form-item label="支付方式" label-width="100px">
+                    <el-dropdown trigger="click" placement="bottom-start">
+                        <el-input v-model="addPayType" placeholder="请输入支付方式"></el-input>
+                        <el-dropdown-menu slot="dropdown">
+                            <el-dropdown-item v-for='item in payList' :key='item'>{{item}}</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </el-dropdown>
+                </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+                <el-button @click="dialogFormVisible = false">取 消</el-button>
+                <el-button type="primary" @click="dialogFormVisible = false">确 定</el-button>
+            </div>
+        </el-dialog>
     </div>
 </template>
 
 <script>
     // @ is an alias to /src
     import zel from '@/assets/global.js'
-
+    function formatNum(f, digit) { 
+        var m = Math.pow(10, digit); 
+        return parseInt(f * m, 10) / m; 
+    } 
     export default {
         name: 'Home',
         data: () => ({
@@ -123,7 +173,7 @@
             ],
             tableSource: [],
             multipleSelection: [],
-            input: '',
+            variationCheck: [],
             account: 0,
             dateCheckList: [],
             dateList: [
@@ -165,14 +215,87 @@
             defaultProps: {
                 children: 'children',
                 label: 'label'
-            }
+            },
+            dialogFormVisible: false,
+            detail: '',
+            addDate: '',
+            addVariety: '',
+            addPayType: ''
         }),
         computed: {
 
         },
+        watch: {
+            dateCheckList: {
+                handler (val) {
+                    this.filter()
+                    if (val.length <= 0) {
+                        let index = this.filterList.findIndex(v=>v.customType == 'dateCheckList')
+                        if (index >= 0) this.filterList.splice(index, 1)
+                        return
+                    }
+                    let obj = this.filterList.find(v=>v.customType == 'dateCheckList')
+                    if (obj) {
+                        obj.name = '日期：'+ val.join(' , ')
+                    } else {
+                        this.filterList.push({
+                            name: '日期：'+ val.join(' , '),
+                            type: 'success',
+                            customType: 'dateCheckList'
+                        })
+                    }
+                }
+            },
+            payCheckList: {
+                handler (val) {
+                    this.filter()
+                    if (val.length <= 0) {
+                        let index = this.filterList.findIndex(v=>v.customType == 'payCheckList')
+                        if (index >= 0) this.filterList.splice(index, 1)
+                        return
+                    }
+                    let obj = this.filterList.find(v=>v.customType == 'payCheckList')
+                    if (obj) {
+                        obj.name = '支付方式：'+ val.join(' , ')
+                    } else {
+                        this.filterList.push({
+                            name: '支付方式：'+ val.join(' , '),
+                            type: 'success',
+                            customType: 'payCheckList'
+                        })
+                    }
+                }
+            },
+            variationCheck: {
+                handler (val) {
+                    this.filter()
+                    if (val.length <= 0) {
+                        let index = this.filterList.findIndex(v=>v.customType == 'variationCheck')
+                        if (index >= 0) this.filterList.splice(index, 1)
+                        return
+                    }
+                    let obj = this.filterList.find(v=>v.customType == 'variationCheck')
+                    if (obj) {
+                        obj.name = '类别：'+ val.join(' , ')
+                    } else {
+                        this.filterList.push({
+                            name: '类别：'+ val.join(' , '),
+                            type: 'success',
+                            customType: 'variationCheck'
+                        })
+                    }
+                }
+            }
+        },
         methods: {
             handleClose(tag, index) {
                 this.filterList.splice(index, 1)
+                if (tag.customType == 'dateCheckList') {
+                    this.dateCheckList = []
+                }
+                if (tag.customType == 'payCheckList') {
+                    this.payCheckList = []
+                }
             },
             toggleSelection(rows) {
                 if (rows) {
@@ -184,13 +307,20 @@
                 }
             },
             handleCheckChange(data) {
-                console.log(data)
+                console.log(this.$refs.tree.getCheckedNodes(true, false),this.$refs.tree.getNode())
             },
             handleSelectionChange(val) {
                 this.multipleSelection = val;
+                this.computeAccount()
             },
             delData(scope) {
-                this.tableData.splice(scope.$index, 1)
+                this.$confirm('确认删除吗？')
+                .then(_ => {
+                    this.tableData.splice(scope.$index, 1)
+                    this.computeAccount()
+                })
+                .catch(_ => {});
+                
             },
             excel_add(e) { //导入模板的方法
                 var _vm = this;
@@ -252,59 +382,73 @@
                 })
                 this.dateList = dateList
                 this.payList = payList
-// {
-                //     label: '一级 1',
-                //     children: [{
-                //         label: '二级 1-1',
-                //         children: [{
-                //             label: '三级 1-1-1'
-                //         }]
-                //     }]
-                // }, {
-                //     label: '一级 2',
-                //     children: [{
-                //         label: '二级 2-1',
-                //         children: [{
-                //             label: '三级 2-1-1'
-                //         }]
-                //     }, {
-                //         label: '二级 2-2',
-                //         children: [{
-                //             label: '三级 2-2-1'
-                //         }, {
-                //             label: '三级 2-2-2'
-                //         }]
-                //     }]
-                // }, {
-                //     label: '一级 3',
-                //     children: []
-                // }
                 //分析分类的渲染数据
-                let vArr = []
-                variateList.forEach(v=>{
-                    let itemArr = v.split('-')
-                    let cur = null
-                    while (itemArr.length > 0) {
-                        if (!cur) {
-                            cur = vArr.find(el => el.label == itemArr[0])
-                        } else {
-                            cur = cur.children
-                        }
-                        
-                        if (!cur) {
-                            cur = {
-                                label: itemArr[0],
-                                children: []
-                            }
-                            vArr.push(cur)
-                        }
-                    }
-                })
+                // let vArr = []
+                // variateList.forEach(v=>{
+                //     let itemArr = v.split('-')
+                //     let cur = null
+                //     function recursion (list, box) {
+                //         if (list.length <= 0) return
+                //         let obj = box.find(el => el.label == list[0])
+                //         if (!obj) {
+                //             obj = {
+                //                 label: list[0],
+                //                 children: []
+                //             }
+                //             box.push(obj)
+
+                //         }
+                //         list.shift()
+                //         recursion(list, obj.children)
+                //     }
+                //     recursion(itemArr, vArr)
+                    
+                // })
+                this.variationData = variateList
             },
             format (date) {
                 var now = new Date(date)
                 var localUtc = new Date().getTimezoneOffset() /60;
                 return now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate()
+            },
+            computeAccount () {
+                let num = 0
+                this.multipleSelection.forEach(v=>{
+                    num = (parseFloat(num) + parseFloat(v.money)).toFixed(2)
+                })
+                this.account = num
+            },
+            filter () {
+                this.tableData = this.tableSource.filter(v=>{
+                    let b1 = true, b2 = true, b3 = true
+                    if (this.dateCheckList.length > 0) {
+                        b1 = this.dateCheckList.indexOf(v.date) >= 0
+                    }
+                    if (this.variationCheck.length > 0) {
+                        b2 = this.variationCheck.indexOf(v.variation) >= 0
+                    }
+                    if (this.payCheckList.length > 0) {
+                        b3 = this.payCheckList.indexOf(v.paymentType) >= 0
+                    }
+                    return b1 && b2 && b3
+                })
+            },
+            clearWorkSpace () {
+               this.filterList = [] 
+               this.tableData = []
+               this.tableSource = []
+               this.multipleSelection = []
+               this.variationCheck = []
+               this.account = 0
+               this.dateCheckList = []
+               this.dateList = []
+               this.payCheckList = []
+               this.payList = []
+               this.variationData = []
+            },
+            findNode () {},
+            addVarietyCall (commond) {
+                console.log(commond)
             }
         },
         components: {

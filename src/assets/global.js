@@ -10,7 +10,6 @@ zel.excel_load = (buffer, call) => {
         book.push(sheet_list);
     })
     
-    console.log(book)
     call(book)
 }
 export default zel
